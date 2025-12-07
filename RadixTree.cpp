@@ -143,7 +143,164 @@ void RadixTree::insert(const char* word) {
 		newnode->children = nullptr;
 		addchild(parentNode, newnode);
 	}
+#pragma once
+#include <cstring>
 
+// ---------------- Node Structure ----------------
+struct Node {
+    char prefix[50];
+    bool isTerminal;
+    Node* children[26];
+
+    Node() {
+        prefix[0] = '\0';
+        isTerminal = false;
+        for (int i = 0; i < 26; i++) children[i] = nullptr;
+    }
+};
+
+// --------------- Helper Functions ---------------
+
+// Count number of non-null children
+int countChildren(Node* node) {
+    int count = 0;
+    for (int i = 0; i < 26; i++)
+        if (node->children[i] != nullptr)
+            count++;
+    return count;
+}
+
+// Returns the index of the single child, or -1 if none or more than 1
+int getOnlyChild(Node* node) {
+    int idx = -1;
+    for (int i = 0; i < 26; i++) {
+        if (node->children[i] != nullptr) {
+            if (idx != -1) return -1; // more than one child
+            idx = i;
+        }
+    }
+    return idx;
+}
+
+// Removes a prefix from the front of a C-string
+void removePrefix(char* str, int prefixLen) {
+    int len = strlen(str);
+    for (int i = prefixLen; i <= len; i++)
+        str[i - prefixLen] = str[i];
+}
+
+// --------------- Core Deletion Function ---------------
+
+bool deleteRec(Node*& node, const char* key) {
+    if (!node) return false;
+
+    int prefixLen = strlen(node->prefix);
+    int keyLen = strlen(key);
+
+    // Prefix mismatch
+    if (prefixLen > 0) {
+        if (strncmp(node->prefix, key, prefixLen) != 0)
+            return false;
+    }
+
+    // Case 1: We reached the node storing the key
+    if (prefixLen == keyLen) {
+        if (!node->isTerminal) return false; // key not stored
+        
+        node->isTerminal = false; // delete key value
+
+        // If leaf → remove node
+        if (countChildren(node) == 0) {
+            delete node;
+            node = nullptr;
+            return true;
+        }
+
+        // If exactly one child left → merge
+        if (countChildren(node) == 1) {
+            int idx = getOnlyChild(node);
+            Node* child = node->children[idx];
+
+            char newPrefix[50];
+            strcpy(newPrefix, node->prefix);
+            strcat(newPrefix, child->prefix);
+
+            strcpy(node->prefix, newPrefix);
+            node->isTerminal = child->isTerminal;
+
+            // move grandchildren up
+            for (int i = 0; i < 26; i++) {
+                node->children[i] = child->children[i];
+            }
+
+            delete child;
+        }
+
+        return true;
+    }
+
+    // Case 2: Need to continue deeper
+    int nextIndex = key[prefixLen] - 'a';
+    if (nextIndex < 0 || nextIndex >= 26) return false;
+
+    Node* child = node->children[nextIndex];
+    if (!child) return false;
+
+    bool removed = deleteRec(child, key + prefixLen);
+
+    if (!removed) return false;
+
+    // After deletion, check if child should be removed
+    if (child == nullptr) {
+        node->children[nextIndex] = nullptr;
+    } else {
+        // If child becomes removable
+        if (!child->isTerminal && countChildren(child) == 0) {
+            delete child;
+            node->children[nextIndex] = nullptr;
+        }
+        // If child can be merged upward
+        else if (!child->isTerminal && countChildren(child) == 1) {
+            int idx = getOnlyChild(child);
+
+            char newPrefix[50];
+            strcpy(newPrefix, node->children[nextIndex]->prefix);
+            strcat(newPrefix, child->children[idx]->prefix);
+
+            Node* grand = child->children[idx];
+
+            strcpy(node->children[nextIndex]->prefix, newPrefix);
+            node->children[nextIndex]->isTerminal = grand->isTerminal;
+
+            for (int i = 0; i < 26; i++)
+                node->children[nextIndex]->children[i] = grand->children[i];
+
+            delete grand;
+        }
+    }
+
+    // Merge this node upward if possible
+    if (!node->isTerminal && countChildren(node) == 1) {
+        int only = getOnlyChild(node);
+        if (only != -1) {
+            Node* child2 = node->children[only];
+
+            char newPrefix[50];
+            strcpy(newPrefix, node->prefix);
+            strcat(newPrefix, child2->prefix);
+
+            strcpy(node->prefix, newPrefix);
+            node->isTerminal = child2->isTerminal;
+
+            for (int i = 0; i < 26; i++)
+                node->children[i] = child2->children[i];
+
+            delete child2;
+        }
+    }
+
+    return true;
+}
 
 
 
@@ -158,4 +315,5 @@ void RadixTree::insert(const char* word) {
 //   4. Use the Error List window to view errors
 //   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
 //   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
+
 
