@@ -1,34 +1,42 @@
 #pragma once
 #include "Node.h"
-class RadixTree
-{
+
+class RadixTree {
 public:
-	Node* myRoot;
-	int childCount;
-	RadixTree();
-	~RadixTree();
-	bool empty();
+    Node* myRoot;
 
-void insert(const char* word);
-int SearchPrefix(const char* word, Node* currectNode);
-void addchild(Node* parent, Node* childnode);
+    RadixTree();
+    ~RadixTree();
 
-bool deleteWord(const char* word) ;
-bool deleteRec(Node*& current, const char* word);
+    bool empty();
+    void insert(const char* word);
+    void addchild(Node* parent, Node* childnode);
+    int matchPrefix(const char* nodePrefix, const char* keySegment);
+    int SearchPrefix(const char* word, Node* currectNode);
 
-// Search / Lookup Operation
-int matchPrefix(const char* nodePrefix, const char* keySegment);
-bool search(const char* key);
-Node* traverseEdge(Node* node, const char* keySegment, int& matchedLen);
-bool isKeyFullyMatched(Node* node, const char* key, int keyLen);
-void handleSearchFailure(const char* reason);
+    // search
+    bool search(const char* key);
+    Node* traverseEdge(Node* node, const char* keySegment, int& matchedLen);
+    bool isKeyFullyMatched(Node* node, const char* key, int keyLen);
+    void handleSearchFailure(const char* reason);
 
+    // deletion
+    bool deleteWord(const char* word);
+    bool deleteRec(Node*& current, const char* word);
 
-Node* findNodeForPrefix(const char* prefix);
+    // autocomplete
+    void collectWords(Node* node, const char* prefix);
+    void getAutocompletions(const char* prefix);
 
+    // extras
+    long long getCurrentTimestamp();
+    void updateWordFrequency(Node* node);
+    void incrementFrequency(const char* word);
 
-
+    // internal memory cleanup
+    void destroy(Node* node);
 };
+
 
 
 
