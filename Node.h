@@ -1,15 +1,28 @@
 #pragma once
+
 struct Node;
+
 struct child {
-	char firstChar; //by store awl harf bs mn el label 3shan yb2a as7al while searching
-	Node* node;     //points to the child itself
-	child* next;        //siblings
-	child(char ch, Node* node);
+    char firstChar;       // first character of node label
+    Node* node;           // pointer to child node
+    child* next;          // sibling pointer
+
+    child(char ch, Node* n);
 };
+
 struct Node {
-	char data[50]; //dah 3shan a store el kalma elly fe elnode
-	bool ended;
-	child* children;
-	Node();
-	Node(const char* label);
+    char* data;           // <-- CRITICAL CHANGE: Node label is now a pointer to dynamic memory
+    bool ended;           // marks end of valid word
+    int frequency;        // usage frequency
+    long long timestamp;  // last access time
+    child* children;
+
+    // DESTRUCTOR DECLARATION: Required to free the memory pointed to by 'data'
+    ~Node(); 
+
+    Node();
+    Node(const char* label);
+
+    bool isLeaf() const;      // no children
+    int getChildCount() const; // count children
 };
