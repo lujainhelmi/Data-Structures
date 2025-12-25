@@ -1,161 +1,303 @@
-// RadixTree.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
-
-#include <cstring>
 #include "RadixTree.h"
+#include <iostream>
+#include <chrono>
+#include <cstring>
+using namespace std;
 
+// ================= Constructors & Destructor =================
 
 RadixTree::RadixTree() {
-	myRoot = nullptr;
+    myRoot = nullptr;
 }
+
 RadixTree::~RadixTree() {
-	//deletion 
+    destroy(myRoot);
+}
+
+void RadixTree::destroy(Node* node) {
+    if (!node) return;
+    child* ch = node->children;
+    while (ch) {
+        destroy(ch->node);
+        child* old = ch;
+        ch = ch->next;
+        delete old;
+    }
+    delete node;
 }
 
 bool RadixTree::empty() {
-	return myRoot == nullptr;
-
+    return myRoot == nullptr;
 }
+
+// ================= Helper Functions =================
+
+int RadixTree::matchPrefix(const char* nodePrefix, const char* keySegment) {
+    int i = 0;
+    while (nodePrefix[i] != '\0' && keySegment[i] != '\0' && nodePrefix[i] == keySegment[i])
+        i++;
+    return i;
+}
+
 int RadixTree::SearchPrefix(const char* word, Node* currentNode) {
-	int i = 0;
-	while (currentNode->data[i] != '\0' && word[i] != '\0' && word[i] == currentNode->data[i])
-		i++;
-	return i;
+    return matchPrefix(word, currentNode->data);
 }
+
 void RadixTree::addchild(Node* parent, Node* childnode) {
-	child* newchild = new child(childnode->data[0], childnode);//saved first char, and childnode is the node of child itselt
-	newchild->next = parent->children;//siblings of new child is now the chilren of the parent
-	parent->children = newchild; //children of parent is now the new child, so when saying children the pointer now points to the new child
+    child* newchild = new child(childnode->data[0], childnode);
+    newchild->next = parent->children;
+    parent->children = newchild;
 }
+
+// ================= INSERT =================
+
 void RadixTree::insert(const char* word) {
-	//case1:empty tree
-	if (empty()) {
-		myRoot = new Node(word);
-		myRoot->ended = true;
-		return;
-	}
-	//case 3:common  prefix found
-	//child* cur = myRoot->children;
-	bool isPrefix = false;
-	//Node* current = myRoot;
-	Node* parentNode = myRoot;
-	child* ch = parentNode->children;
-	while (ch != nullptr) {
-		int nodeLen = 0;
-		while (ch->node->data[nodeLen] != '\0') nodeLen++;
-		int wordLen = 0;
-		while (word[wordLen] != '\0') wordLen++;
-		int prefix = SearchPrefix(word, ch->node);
-		if (prefix > 0) {// case exact match
-			isPrefix = true;
-			if (prefix == nodeLen && prefix == wordLen) {// this works becaus ethe serachprefix counts only equal prefixes so if they are same number as well then its the same word
-				ch->node->ended = true;
-				return;
-			}
-			if (prefix == wordLen && prefix < nodeLen) {
-				Node* oldnode = ch->node;//let oldnode pointer point at the node with the whole word
-				Node* newnode = new Node(word); //node created for our word 
-				newnode->ended = true;
-				/*char temp[50]
-				strcpy(temp, oldnode->data+pref);
-				strcpy(oldnode->data,temp);
-				or */
-				Node* suffix = new Node(oldnode->data + prefix);
-				suffix->ended = oldnode->ended;
-				suffix->children = oldnode->children;
-				newnode->children = nullptr;
-				addchild(newnode, suffix);
-				ch->node = newnode;
-				delete oldnode;
-				return;
+    if (empty()) {
+        myRoot = new Node(word);
+        myRoot->ended = true;
+        myRoot->frequency = 1;
+        myRoot->timestamp = getCurrentTimestamp();
+        return;
+    }
 
-			}
-				//case 2:common  prefix found
-		    /*if (wordLen > nodeLen) {
-				isPrefix = true;
-				for (int i = 0; i < nodeLen; i++) {
-					if (ch->node->data[i] != word[i]) {
-						isPrefix = false;
-						break;
-					}
-				}
-			if (isPrefix) {
-					int difference = wordLen - nodeLen;
-					Node* newNode = new Node();
-					for (int i = 0; i < difference; i++) {
-						newNode->data[i] = word[nodeLen + i];
-					}
-				    newNode->data[difference] = '\0';
-					newNode->ended = true;
-					newNode->children = nullptr;
-					child* newChild = new child(newNode->data[0], newNode);
-					newChild->next = ch->node->children;
-					ch->node->children = newChild;
-					addchild(ch->node, newNode);
-					return;
-				}
-			}*/
-			if (prefix == nodeLen && wordLen > nodeLen) {
+    Node* parent = nullptr;
+    Node* current = myRoot;
+    const char* w = word;
 
-				Node* newNode = new Node(word + nodeLen);
-				newNode->ended = true;
-				newNode->children = nullptr;
+    while (current) {
+        int p = matchPrefix(current->data, w);
+        int nLen = strlen(current->data);
+        int wLen = strlen(w);
 
-				addchild(ch->node, newNode);
-				return;
-			}
-			//else {//case 3:partial overlap condition
-				//int prefix = SearchPrefix(word, ch->node->data);
-			if (prefix > 0 && prefix < nodeLen) {
-				Node* newTop = new Node();
-				strncpy_s(newTop->data, ch->node->data, prefix);
-				newTop->data[prefix] = '\0';
-				newTop->ended = false;
-				Node* node1 = new Node();
-				Node* node2 = new Node();
-				strncpy_s(node1->data, ch->node->data + prefix, nodeLen - prefix);
-				node1->data[nodeLen - prefix] = '\0';
-				node1->ended = ch->node->ended;
-				node1->children = ch->node->children;
-				strncpy_s(node2->data, word + prefix, wordLen - prefix);
-				node2->data[wordLen - prefix] = '\0';
-				node2->ended = true;
-				node2->children = nullptr;
-				child* child1 = new child(node1->data[0], node1);
-				child* child2 = new child(node2->data[0], node2);
-				child1->next = child2;
-				newTop->children = child1;
-				//child* newChild= new child(newTop->data[0],newTop);
-				//newChild->next = ch->next;
-				//parentNode->children = newChild;
-				addchild(parentNode, newTop);
-				return;
-			}
-		}
-		parentNode = ch->node;
-		ch = ch->next;
+        // 1️⃣ SPLIT if mismatch inside current label
+        if (p < nLen) {
+            Node* suffix = new Node(current->data + p);
+            suffix->ended = current->ended;
+            suffix->frequency = current->frequency;
+            suffix->timestamp = current->timestamp;
+            suffix->children = current->children;
 
-	}
+            current->data[p] = '\0';
+            current->ended = false;
+            current->children = nullptr;
+            addchild(current, suffix);
 
-	//case 2:no common prefix found
-		Node* newnode = new Node(word);// created a newnode pointer of type node, then made it point to a node that has the word
-		newnode->ended = true;
-		newnode->children = nullptr;
-		addchild(parentNode, newnode);
-	}
+            if (p == wLen) {
+                current->ended = true;
+                current->frequency++;
+                current->timestamp = getCurrentTimestamp();
+                return;
+            }
 
+            Node* nw = new Node(w + p);
+            nw->ended = true;
+            nw->frequency = 1;
+            nw->timestamp = getCurrentTimestamp();
+            addchild(current, nw);
+            return;
+        }
 
+        // 2️⃣ EXACT MATCH → mark as full word
+        if (p == wLen && p == nLen) {
+            current->ended = true;
+            current->frequency++;
+            current->timestamp = getCurrentTimestamp();
+            return;
+        }
 
+        // 3️⃣ Continue search among children
+        child* ch = current->children;
+        parent = current;
+        current = nullptr;
+        while (ch) {
+            if (ch->firstChar == *(w + p)) {
+                current = ch->node;
+                break;
+            }
+            ch = ch->next;
+        }
 
+        if (!current) {
+            Node* nw = new Node(w + p);
+            nw->ended = true;
+            nw->frequency = 1;
+            nw->timestamp = getCurrentTimestamp();
+            addchild(parent, nw);
+            return;
+        }
 
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
+        w += p;
+    }
+}
 
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
+// ================= SEARCH =================
 
+bool RadixTree::search(const char* key) {
+    if (empty()) return false;
+
+    Node* current = myRoot;
+    const char* k = key;
+
+    while (current) {
+        int p = matchPrefix(current->data, k);
+        int nLen = strlen(current->data);
+
+        if (p < nLen) return false;
+        if (p == strlen(k)) return current->ended;
+
+        child* ch = current->children;
+        current = nullptr;
+
+        while (ch) {
+            if (ch->firstChar == *(k + p)) {
+                current = ch->node;
+                break;
+            }
+            ch = ch->next;
+        }
+
+        if (!current) return false;
+        k += p;
+    }
+    return false;
+}
+
+// ================= DELETE (FULL FIXED VERSION) =================
+
+bool RadixTree::deleteWord(const char* word) {
+    if (!myRoot) return false;
+    return deleteRec(myRoot, word);
+}
+
+bool RadixTree::deleteRec(Node*& current, const char* word) {
+    if (!current) return false;
+
+    const char* w = word;
+    int p = matchPrefix(current->data, w);
+    int nLen = strlen(current->data);
+    int wLen = strlen(w);
+
+    if (p == 0) return false;
+
+    // FULL match at this node
+    if (p == nLen && p == wLen) {
+        if (!current->ended) return false;
+        current->ended = false;
+
+        if (!current->children) {
+            delete current;
+            current = nullptr;
+            return true;
+        }
+        return true;
+    }
+
+    // Traverse deeper
+    if (p == nLen && p < wLen) {
+        w += p;
+        char nextChar = *w;
+
+        child* prev = nullptr;
+        child* ch = current->children;
+        while (ch && ch->firstChar != nextChar) {
+            prev = ch;
+            ch = ch->next;
+        }
+        if (!ch) return false;
+
+        bool removed = deleteRec(ch->node, w);
+        if (!removed) return false;
+
+        if (!ch->node) {
+            if (!prev) current->children = ch->next;
+            else prev->next = ch->next;
+            delete ch;
+        }
+
+        // MERGE UPWARD if one child left & not a word
+        if (!current->ended && current->children && current->children->next == nullptr) {
+            Node* childNode = current->children->node;
+            strcat(current->data, childNode->data);
+            current->ended = childNode->ended;
+            current->children = childNode->children;
+            delete childNode;
+        }
+        return true;
+    }
+
+    return false;
+}
+
+// ================= AUTOCOMPLETE (Direct Print) =================
+
+void RadixTree::collectWords(Node* node, const char* prefix) {
+    if (!node) return;
+
+    char newPrefix[100];
+    strcpy(newPrefix, prefix);
+    strcat(newPrefix, node->data);
+
+    if (node->ended) cout << "- " << newPrefix << endl;
+
+    child* ch = node->children;
+    while (ch) {
+        collectWords(ch->node, newPrefix);
+        ch = ch->next;
+    }
+}
+
+void RadixTree::getAutocompletions(const char* prefix) {
+    if (empty()) {
+        cout << "Tree empty.\n";
+        return;
+    }
+
+    Node* current = myRoot;
+    const char* p = prefix;
+    int pre = matchPrefix(current->data, p);
+
+    if (pre == 0 && strlen(current->data) > 0) {
+        cout << "No suggestions found.\n";
+        return;
+    }
+
+    p += pre;
+    while (strlen(p) > 0) {
+        child* ch = current->children;
+        current = nullptr;
+        while (ch) {
+            int m = matchPrefix(ch->node->data, p);
+            if (m > 0) {
+                current = ch->node;
+                p += m;
+                break;
+            }
+            ch = ch->next;
+        }
+        if (!current) {
+            cout << "No suggestions found.\n";
+            return;
+        }
+    }
+
+    collectWords(current, prefix);
+}
+
+// ================= Timestamp =================
+
+long long RadixTree::getCurrentTimestamp() {
+    return chrono::duration_cast<chrono::milliseconds>(
+        chrono::system_clock::now().time_since_epoch()).count();
+}
+
+void RadixTree::updateWordFrequency(Node* node) {
+    if (node && node->ended) {
+        node->frequency++;
+        node->timestamp = getCurrentTimestamp();
+    }
+}
+
+void RadixTree::incrementFrequency(const char* word) {
+    if (!myRoot) return;
+    search(word);
+}
